@@ -1,0 +1,59 @@
+{
+  "resource": "lead-system-logs",
+  "tag": "Lead System Logs",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 1,
+  "operations": [
+    {
+      "operationId": "list_1",
+      "method": "GET",
+      "path": "/v1.0/systemLogs",
+      "summary": "System Logs",
+      "description": "Returns system-event timeline entries for the lead, sorted by timelineTime descending (newest first), with offset-based pagination.\n\nOnly system / change-log activity events are returned (e.g. stage changes, assignment/routing, subscriptions, smart-plan tasks). Call, text, email and site-activity (search / view / favorite) entries are NOT included, nor is note content (e.g. adding a note); edit/delete-note actions (types 17/18) are included. Each entry includes both the `timelineType` integer and a human-readable `timelineTypeDesc` name, so you do not need to map the integer yourself.\n\nNote: `startTime`/`endTime` query parameters are epoch milliseconds, but the `timelineTime`/`createTime`/`updateTime` fields in the response are ISO-8601 strings.\n\nAuthorization: the authenticated user must be the lead's owner or the shared agent; otherwise 403 is returned.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead."
+        },
+        {
+          "name": "startTime",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": "Inclusive lower bound (milliseconds since Unix epoch, UTC). "
+        },
+        {
+          "name": "endTime",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": "Inclusive upper bound (milliseconds since Unix epoch, UTC). "
+        },
+        {
+          "name": "pageNumber",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "0-based page index."
+        },
+        {
+          "name": "pageSize",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of entries per page."
+        }
+      ],
+      "requestBody": null
+    }
+  ]
+}

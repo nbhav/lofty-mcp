@@ -1,0 +1,68 @@
+{
+  "resource": "transactions-v2",
+  "tag": "Transactions V2",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 2,
+  "operations": [
+    {
+      "operationId": "searchTransactions",
+      "method": "GET",
+      "path": "/v2.0/transactions",
+      "summary": "List Transactions",
+      "description": "Search and list transactions with pagination and optional keyword filter.",
+      "parameters": [
+        {
+          "name": "pageSize",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Page size; must be between 1 and 100."
+        },
+        {
+          "name": "pageNum",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Page number (0-based); must be >= 0."
+        },
+        {
+          "name": "queryKey",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Search keyword. Performs a contains-style fuzzy match (first 15 characters only) against transaction name, property address, or the associated lead name; matching any one field is sufficient."
+        },
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": "Optional. Restrict results to transactions belonging to this lead."
+        },
+        {
+          "name": "transactionType",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Optional. Filter by transaction type: Purchase, Listing, Lease, Other, or All to return every type in a single call. Case-insensitive. Defaults to Purchase when omitted. Unrecognized values return 400 (20012 INVALID_PARAMETER)."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "listPipelines",
+      "method": "GET",
+      "path": "/v2.0/transactions/pipelines",
+      "summary": "List Transaction Pipelines",
+      "description": "Returns the team's full transaction pipeline configuration: for each transaction type (Purchase, Listing, Lease, Other), the ordered list of stages with their IDs, names and semantic flags. Use this to discover the valid status values before creating or updating transactions \u2014 stage names are customizable per team, so they must not be hardcoded.",
+      "parameters": [],
+      "requestBody": null
+    }
+  ]
+}

@@ -1,0 +1,131 @@
+{
+  "resource": "notes",
+  "tag": "Notes",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 5,
+  "operations": [
+    {
+      "operationId": "list_2",
+      "method": "GET",
+      "path": "/v1.0/notes",
+      "summary": "List Notes",
+      "description": "Returns all notes attached to the given lead.\n\nNotes:\n- Caller must have access to the lead; otherwise 404 LEAD_NOT_EXIST.\n- By default only user-created notes are returned. Pass includeSystemNote=true to also include automated / system-generated notes.\n- Response order is not guaranteed.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead whose notes to return."
+        },
+        {
+          "name": "includeSystemNote",
+          "in": "query",
+          "required": false,
+          "type": "boolean",
+          "format": null,
+          "description": "When true, include system-generated notes alongside user-created notes."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "add_1",
+      "method": "POST",
+      "path": "/v1.0/notes",
+      "summary": "Create Note",
+      "description": "Creates a note on the target lead.\n\nNotes:\n- leadId, content and isPin are required; content must not be blank.\n- content is silently truncated to 2000 characters.\n- Caller must have access to the lead; otherwise 404 LEAD_NOT_EXIST.\n- The response contains only the new note's ID under the 'noteId' key.\n- Persistence is asynchronous: subsequent GET and PUT on the returned noteId may briefly return 404 immediately after create. DELETE is unaffected.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/NoteRequest",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "delete_1",
+      "method": "DELETE",
+      "path": "/v1.0/notes/{noteId}",
+      "summary": "Delete Note",
+      "description": "Deletes a note by ID. Caller must have manage permission on the lead that owns the note. The response body is empty.",
+      "parameters": [
+        {
+          "name": "noteId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the note to delete."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getNoteByNoteId",
+      "method": "GET",
+      "path": "/v1.0/notes/{noteId}",
+      "summary": "Get a note by ID",
+      "description": "Returns a single note by its ID. The note must belong to a lead visible to the caller.",
+      "parameters": [
+        {
+          "name": "noteId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the note to retrieve."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "update",
+      "method": "PUT",
+      "path": "/v1.0/notes/{noteId}",
+      "summary": "Update Note",
+      "description": "Updates the content and pin state of an existing note.\n\nNotes:\n- content must not be blank; isPin must not be null.\n- content is silently truncated to 2000 characters.\n- If leadId is supplied in the body, it must match the note's lead; otherwise 400 INVALID_UPDATE_OPERATION_LEADID.\n- Caller must have access to the lead; otherwise 404 LEAD_NOT_EXIST.\n- The response body is empty.",
+      "parameters": [
+        {
+          "name": "noteId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the note to update."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/NoteRequest",
+        "inlineType": null
+      }
+    }
+  ]
+}

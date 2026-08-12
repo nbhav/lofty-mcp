@@ -1,0 +1,141 @@
+{
+  "resource": "tasks-appointments",
+  "tag": "Tasks & Appointments",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 6,
+  "operations": [
+    {
+      "operationId": "list_5",
+      "method": "GET",
+      "path": "/v1.0/appts",
+      "summary": "List Appointments",
+      "description": "Returns appointments attached to the given lead. Caller must have manage permission on the lead.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead whose appointments to return."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "listTask_1",
+      "method": "GET",
+      "path": "/v1.0/tasks",
+      "summary": "List Tasks (V1)",
+      "description": "Returns tasks attached to the given lead. Caller must have manage permission on the lead.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead whose tasks to return."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "addTask_1",
+      "method": "POST",
+      "path": "/v1.0/tasks",
+      "summary": "Create Task (V1)",
+      "description": "Creates a task on the target lead.\n\nNotes:\n- content, leadId, deadline, type and assignedRole are required.\n- Caller must have manage permission on the lead.\n- The response contains only the new task's ID under the 'taskId' key.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/TaskRequest",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "deleteTask_1",
+      "method": "DELETE",
+      "path": "/v1.0/tasks/{taskId}",
+      "summary": "Delete Task (V1)",
+      "description": "Deletes a task by ID. Caller must have manage permission on the task's lead. The response body is empty.",
+      "parameters": [
+        {
+          "name": "taskId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the task to delete."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getTaskById_1",
+      "method": "GET",
+      "path": "/v1.0/tasks/{taskId}",
+      "summary": "Get Task (V1)",
+      "description": "Returns a single task by ID, along with the lead's pipeline context. Caller must have manage permission on the lead that owns the task.",
+      "parameters": [
+        {
+          "name": "taskId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the task to retrieve."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "updateTask_1",
+      "method": "PUT",
+      "path": "/v1.0/tasks/{taskId}",
+      "summary": "Update Task (V1)",
+      "description": "Partially updates an existing task. Fields not supplied are left unchanged.\n\nNotes:\n- When finishFlag is true, the task is marked completed and all other fields are ignored. Completion is rejected for smart-plan tasks (TASK_IS_SMARTPLAN).\n- When leadId is supplied, it must match the task's existing lead; otherwise 400 INVALID_UPDATE_OPERATION_LEADID.\n- At least one field must be supplied; an entirely empty payload returns 400 MISSING_PARAMETER.\n- Caller must have manage permission on the task's lead.\n- The response body is empty.",
+      "parameters": [
+        {
+          "name": "taskId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the task to update."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/TaskRequest",
+        "inlineType": null
+      }
+    }
+  ]
+}

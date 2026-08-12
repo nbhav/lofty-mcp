@@ -1,0 +1,61 @@
+{
+  "resource": "agent-user",
+  "tag": "Agent User",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 2,
+  "operations": [
+    {
+      "operationId": "addAgent",
+      "method": "POST",
+      "path": "/v1.0/agent/profile/add",
+      "summary": "Create a new agent",
+      "description": "Creates a new agent under the caller's team using the supplied profile.\n\nNotes:\n- accountInfo.phoneNumber and accountInfo.emailAddress are required.\n- When phoneCode is omitted, '1' (US) is used by default.\n- When roleName is supplied, it is resolved to the team's matching role; unknown names are ignored and the agent is created without a role binding.\n- Long text fields (address, licenseId, position, personalWebsite, personalIntroduction, social-media item values) are silently truncated to their individual limits.\n- The response envelope carries errorCode = 0 on success; non-zero values indicate validation failure or upstream error, with errorMsg describing the cause.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/AgentProfile",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "addAgentTag",
+      "method": "POST",
+      "path": "/v1.0/agent/{agentId}/tag/add",
+      "summary": "Add tags to an agent",
+      "description": "Attaches one or more tags to the specified agent in batch.\n\nNotes:\n- tagNames must not be empty; up to 20 entries per call.\n- When autoCreate is true, tag names not yet defined on the team are created; when false, unknown tag names cause the call to fail.\n- The response envelope carries data = true and errorCode = 0 on success.",
+      "parameters": [
+        {
+          "name": "agentId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "User ID of the agent to tag."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/AgentTagRequest",
+        "inlineType": null
+      }
+    }
+  ]
+}

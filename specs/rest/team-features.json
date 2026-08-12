@@ -1,0 +1,110 @@
+{
+  "resource": "team-features",
+  "tag": "Team Features",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 6,
+  "operations": [
+    {
+      "operationId": "findPondById",
+      "method": "GET",
+      "path": "/v1.0/team-features/lead-pond/{id}",
+      "summary": "Get Lead Pond",
+      "description": "Returns a single lead pond by ID. The pond must belong to the caller's team and be visible to the caller (office-level lead-pond manage permission). If it is not, the request fails with 400 Permission denied; the same error is returned whether the pond does not exist or simply is not visible, so existence is not disclosed.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead pond."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "listLeadPonds",
+      "method": "GET",
+      "path": "/v1.0/team-features/lead-ponds",
+      "summary": "List Lead Ponds",
+      "description": "Returns lead ponds on the caller's team that the caller is allowed to see.",
+      "parameters": [],
+      "requestBody": null
+    },
+    {
+      "operationId": "addCustomField",
+      "method": "POST",
+      "path": "/v1.0/teamFeatures/custom-field",
+      "summary": "Add Custom Field",
+      "description": "Creates a new lead-level custom field on the caller's team.\n\nNotes:\n- attributeName is required and is trimmed; empty names are rejected.\n- attributeType is required. Supported types: text, number, date, anniversary_date, single_select, multi_select, percentage, currency.\n  - anniversary_date: a date field that recurs annually (e.g. birthdays, work anniversaries). Accepts the same date format as date.\n- The response body is a plain string message.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/CustomAttribute",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "listLeadPipeline",
+      "method": "GET",
+      "path": "/v1.0/teamFeatures/lead-pipelines",
+      "summary": "List Lead Pipelines",
+      "description": "Returns a page of lead pipeline entries defined on the caller's team. Use the returned lead pipeline IDs when assigning or filtering leads.\n\nNotes:\n- currPage is zero-based.\n- Pass a non-empty name to filter lead pipeline entries by a name substring; omit it to list all.\n- _metadata.total reflects the full result size before pagination.",
+      "parameters": [
+        {
+          "name": "name",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Optional lead pipeline name filter (substring match). Defaults to empty."
+        },
+        {
+          "name": "currPage",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Zero-based page index."
+        },
+        {
+          "name": "pageSize",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of entries to return per page."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "listCustomField",
+      "method": "GET",
+      "path": "/v1.0/teamFeatures/listCustomField",
+      "summary": "List Custom Fields",
+      "description": "Returns the lead-level custom field definitions configured on the caller's team. Use the returned IDs when populating custom field values on leads.",
+      "parameters": [],
+      "requestBody": null
+    },
+    {
+      "operationId": "listTag",
+      "method": "GET",
+      "path": "/v1.0/teamFeatures/listTag",
+      "summary": "List Tags",
+      "description": "Returns lead tags visible to the caller within the team. Includes both team-wide tags and tags scoped to the caller.",
+      "parameters": [],
+      "requestBody": null
+    }
+  ]
+}

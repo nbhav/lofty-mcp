@@ -1,0 +1,243 @@
+{
+  "resource": "communication",
+  "tag": "Communication",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 7,
+  "operations": [
+    {
+      "operationId": "getCommunicationByAgent",
+      "method": "POST",
+      "path": "/v1.0/agent/communication",
+      "summary": "Search by Agent",
+      "description": "Returns a page of communication timeline entries for the caller (or the caller's team when teamView=true, requiring ACCESS_ALL_TEAM_LEADS permission), filtered by type and optional time range. The response is a page wrapper with totalCount, offset, limit, and pageData.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/CommunicationRequest",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "getCommunicationCall",
+      "method": "GET",
+      "path": "/v1.0/communication/call",
+      "summary": "Call History",
+      "description": "Returns call history entries for the given lead. Lead must belong to the caller's team.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead whose call history to return."
+        },
+        {
+          "name": "offset",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Zero-based index of the first entry to return."
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of entries per page."
+        },
+        {
+          "name": "currentId",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": "This parameter is used for page turning. When searching by ID is invoked, the interface would starts from this ID, and retrieve data sequentially. It is recommended to use this parameter as a replacement for offset to turn the page within the limit."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getCommunicationCallV2",
+      "method": "GET",
+      "path": "/v1.0/communication/call/v2",
+      "summary": "List call history of a lead (v2)",
+      "description": "Returns call history entries for the given lead, including additional event types not covered by the v1 variant. Lead must belong to the caller's team.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead whose call history to return."
+        },
+        {
+          "name": "offset",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Zero-based index of the first entry to return."
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of entries per page."
+        },
+        {
+          "name": "currentId",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": "This parameter is used for page turning. When searching by ID is invoked, the interface would starts from this ID, and retrieve data sequentially. It is recommended to use this parameter as a replacement for offset to turn the page within the limit."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getCommunicationEmail",
+      "method": "GET",
+      "path": "/v1.0/communication/email",
+      "summary": "Email History",
+      "description": "Returns email history entries for the given lead. Lead must belong to the caller's team.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead whose email history to return."
+        },
+        {
+          "name": "offset",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Zero-based index of the first entry to return."
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of entries per page."
+        },
+        {
+          "name": "currentId",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": "This parameter is used for page turning. When searching by ID is invoked, the interface would starts from this ID, and retrieve data sequentially. It is recommended to use this parameter as a replacement for offset to turn the page within the limit."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getCommunicationText",
+      "method": "GET",
+      "path": "/v1.0/communication/text",
+      "summary": "SMS History",
+      "description": "Returns text message history entries for the given lead. Lead must belong to the caller's team.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead whose text history to return."
+        },
+        {
+          "name": "offset",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Zero-based index of the first entry to return."
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of entries per page."
+        },
+        {
+          "name": "currentId",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": "This parameter is used for page turning. When searching by ID is invoked, the interface would starts from this ID, and retrieve data sequentially. It is recommended to use this parameter as a replacement for offset to turn the page within the limit."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "sendEmail",
+      "method": "POST",
+      "path": "/v1.0/message/email/send",
+      "summary": "Send Email",
+      "description": "Sends an email to the specified lead using the caller's outgoing email configuration.\n\nNotes:\n- leadId, subject and content are required.\n- toEmail selects a specific email on the lead; when it is not present on the lead, the lead's primary email is used.\n- Caller must have manage permission on the lead.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/EmailSendRequest",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "sendSms",
+      "method": "POST",
+      "path": "/v1.0/message/sms/send",
+      "summary": "Send SMS",
+      "description": "Sends an SMS to the specified lead from the caller's virtual number.\n\nNotes:\n- leadId and content are required.\n- phoneNumber + phoneCode select a specific phone on the lead; when omitted, the lead's primary phone is used.\n- Caller must have manage permission on the lead and must have an active virtual number.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/SmsRequest",
+        "inlineType": null
+      }
+    }
+  ]
+}

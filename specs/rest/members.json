@@ -1,0 +1,88 @@
+{
+  "resource": "members",
+  "tag": "Members",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 4,
+  "operations": [
+    {
+      "operationId": "getMemberAboutMe",
+      "method": "GET",
+      "path": "/v1.0/me",
+      "summary": "Get the current user's profile",
+      "description": "Returns the team-member profile of the caller, resolved from the authentication token.",
+      "parameters": [],
+      "requestBody": null
+    },
+    {
+      "operationId": "getMembers",
+      "method": "GET",
+      "path": "/v1.0/members",
+      "summary": "Team Members",
+      "description": "Returns members of the caller's team, optionally filtered by office / group IDs, with pagination metadata.\n\nNotes:\n- limit must not exceed the configured maximum; oversized values return 400 LIMIT_PARAM_OVERSIZE.\n- offset < 0 is silently reset to 0.\n- total in _metadata reflects the full result size before pagination.\n- When groupIds is omitted, all members visible to the caller are returned.",
+      "parameters": [
+        {
+          "name": "groupIds",
+          "in": "query",
+          "required": false,
+          "type": "array",
+          "format": null,
+          "description": "Office / group IDs to filter members by. When omitted, all visible members are returned."
+        },
+        {
+          "name": "offset",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Zero-based index of the first entry to return. Values < 0 are silently reset to 0."
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of entries to return per page."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getMemberByAccount",
+      "method": "GET",
+      "path": "/v1.0/members/{account}",
+      "summary": "Get a team member by account (email)",
+      "description": "Returns a team member of the caller's team identified by their login email. The member must have accepted the team invitation.",
+      "parameters": [
+        {
+          "name": "account",
+          "in": "path",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "Login email of the team member to retrieve."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getMemberById",
+      "method": "GET",
+      "path": "/v1.0/users/{userId}",
+      "summary": "Get a team member by user ID (deprecated)",
+      "description": "Returns a team member of the caller's team by user ID. Deprecated: prefer GET /v1.0/members/{account} when only the email is available, or GET /v1.0/members with pagination for directory listing.",
+      "parameters": [
+        {
+          "name": "userId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "User ID of the team member to retrieve."
+        }
+      ],
+      "requestBody": null
+    }
+  ]
+}

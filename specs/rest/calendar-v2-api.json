@@ -1,0 +1,303 @@
+{
+  "resource": "calendar-v2-api",
+  "tag": "Calendar V2 API",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 7,
+  "operations": [
+    {
+      "operationId": "queryCalendars",
+      "method": "GET",
+      "path": "/v2.0/calendar",
+      "summary": "List Calendar Events",
+      "description": "Returns a page of calendar entries (Tasks and Appointments) for the caller, optionally filtered by leadId, type and completion status.\n\nNotes:\n- At least one of startTime or endTime is required; requests missing both return 400 INVALID_PARAMETER.\n- includeFinished=true returns both finished and unfinished entries; includeFinished=false returns only unfinished.\n- Results are wrapped under the 'data' key, which also carries pagination metadata.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Lead ID (optional, filter by specific lead)"
+        },
+        {
+          "name": "startTime",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Start time, ISO 8601 with offset. At least one of startTime or endTime is required."
+        },
+        {
+          "name": "endTime",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "End time, ISO 8601 with offset. At least one of startTime or endTime is required."
+        },
+        {
+          "name": "startTimeMs",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Start time as Unix timestamp in milliseconds. Used when startTime is not provided."
+        },
+        {
+          "name": "endTimeMs",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "End time as Unix timestamp in milliseconds. Used when endTime is not provided."
+        },
+        {
+          "name": "timeZoneCode",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Timezone code (IANA format, e.g., America/Los_Angeles)"
+        },
+        {
+          "name": "includeFinished",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Include finished calendars"
+        },
+        {
+          "name": "page",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Page number (starts from 0)"
+        },
+        {
+          "name": "pageSize",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Page size (max 500)"
+        },
+        {
+          "name": "sort",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Sort field (e.g., startTime)"
+        },
+        {
+          "name": "desc",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Sort in descending order"
+        },
+        {
+          "name": "sourceType",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Filter by source type codes. Multiple values allowed."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "createCalendar",
+      "method": "POST",
+      "path": "/v2.0/calendar",
+      "summary": "Create Calendar Event",
+      "description": "Creates either a Task or an Appointment for the target lead, selected by the 'type' field (case-insensitive TASK / APPOINTMENT).\n\nNotes:\n- Caller must have manage permission on the lead; otherwise 400 PERMISSION_DENIED (20017).\n- type, leadId, content, startAt and endAt are required. taskWay is additionally required when type = TASK.\n- startAt and endAt must be later than the current server time.\n- The returned data.id is a composite string ('`<numericId>`-task' or '`<numericId>`-appointment') and must be used as-is when updating, finishing or deleting this entry.\n- When startAt and endAt are both exactly midnight (00:00:00) in their declared offsets, an appointment is automatically marked as all-day.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/CalendarRequestV2",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "getAvailableMeetings",
+      "method": "GET",
+      "path": "/v2.0/calendar/meetings/available",
+      "summary": "Available Meetings",
+      "description": "Returns available meeting time slots within the given time range, sorted by startTime ascending.\n\nNotes:\n- Either startTime (ISO 8601) or startTimeMs (millisecond timestamp) must be provided; same for endTime / endTimeMs. When both forms are provided for a field, the string form takes precedence.\n- The resolved start time must be later than the current server time.\n- The resolved end time must be later than the resolved start time.\n- The range between start and end must not exceed 90 days.\n- At most 'limit' slots are returned; the envelope also includes the total count.",
+      "parameters": [
+        {
+          "name": "startTime",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Start time in ISO 8601 format with offset. Preferred over startTimeMs when both are provided."
+        },
+        {
+          "name": "endTime",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "End time in ISO 8601 format with offset. Preferred over endTimeMs when both are provided."
+        },
+        {
+          "name": "startTimeMs",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": "Start time as Unix timestamp in milliseconds. Used when startTime is not provided."
+        },
+        {
+          "name": "endTimeMs",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": "End time as Unix timestamp in milliseconds. Used when endTime is not provided."
+        },
+        {
+          "name": "timeZoneCode",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "IANA timezone identifier. When omitted, the caller's configured timezone is used."
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Maximum number of slots to return."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "deleteCalendar",
+      "method": "DELETE",
+      "path": "/v2.0/calendar/{calendarId}",
+      "summary": "Delete Calendar Event",
+      "description": "Deletes a Task or Appointment by its composite ID. The response body is a simple message envelope.",
+      "parameters": [
+        {
+          "name": "calendarId",
+          "in": "path",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "Composite calendar ID of the form '`<numericId>`-task' or '`<numericId>`-appointment'."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "updateCalendar",
+      "method": "PUT",
+      "path": "/v2.0/calendar/{calendarId}",
+      "summary": "Update Calendar Event",
+      "description": "Partially updates a Task or Appointment. Only non-empty fields in the request body are applied; omitted fields keep their current values.\n\nNotes:\n- calendarId must be the composite string returned by POST /v2.0/calendar (e.g. '12345-task' or '12345-appointment'). Invalid format returns 400.\n- When startAt or endAt is supplied, it must be later than the current server time.",
+      "parameters": [
+        {
+          "name": "calendarId",
+          "in": "path",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "Composite calendar ID returned by POST /v2.0/calendar, of the form '`<numericId>`-task' or '`<numericId>`-appointment'."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/CalendarUpdateRequestV2",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "finishCalendar",
+      "method": "POST",
+      "path": "/v2.0/calendar/{calendarId}/finish",
+      "summary": "Finish Calendar Event",
+      "description": "Marks a Task or Appointment as finished. Caller must have manage permission on the entry's lead.",
+      "parameters": [
+        {
+          "name": "calendarId",
+          "in": "path",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "Composite calendar ID of the form '`<numericId>`-task' or '`<numericId>`-appointment'."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "unfinishCalendar",
+      "method": "POST",
+      "path": "/v2.0/calendar/{calendarId}/unfinish",
+      "summary": "Unfinish Calendar Event",
+      "description": "Reverts a Task or Appointment back to the not-completed state. Caller must have manage permission on the entry's lead.",
+      "parameters": [
+        {
+          "name": "calendarId",
+          "in": "path",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "Composite calendar ID of the form '`<numericId>`-task' or '`<numericId>`-appointment'."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": null
+    }
+  ]
+}

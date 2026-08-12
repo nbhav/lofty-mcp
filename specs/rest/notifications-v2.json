@@ -1,0 +1,75 @@
+{
+  "resource": "notifications-v2",
+  "tag": "Notifications V2",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 3,
+  "operations": [
+    {
+      "operationId": "sendSystemEmailToAgent",
+      "method": "POST",
+      "path": "/v2.0/sales-agent/message/email/send-to-agent",
+      "summary": "Send Email to Agent",
+      "description": "Sends a system email to the current logged-in user's email address.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/SendEmailToAgentRequest",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "sendSystemSmsToAgent",
+      "method": "POST",
+      "path": "/v2.0/sales-agent/message/sms/send-to-agent",
+      "summary": "Send SMS to Agent",
+      "description": "Sends a system SMS message to the current logged-in user's phone number.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/SendSmsToAgentRequest",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "sendAppPushTaskReminder",
+      "method": "POST",
+      "path": "/v2.0/sales-agent/notification/app-push/send-task-reminder",
+      "summary": "Send Task Reminder Push",
+      "description": "Sends an in-app push notification to the agent assigned to the given task or appointment.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/SendTaskReminderPushRequest",
+        "inlineType": null
+      }
+    }
+  ]
+}

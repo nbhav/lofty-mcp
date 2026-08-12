@@ -1,0 +1,141 @@
+{
+  "resource": "lead-manual-log",
+  "tag": "Lead Manual Log",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 4,
+  "operations": [
+    {
+      "operationId": "list_3",
+      "method": "GET",
+      "path": "/v1.0/logType",
+      "summary": "List manual logs of a lead",
+      "description": "Returns the lead's manual-log entries for a single channel (logCall, logEmail or logText), paginated via offset+limit or cursor (currentId).\n\nNotes:\n- Only entries whose logType equals logCall, logEmail or logText are returned. Auto-captured communications are not included.\n- Caller must have access to the lead; otherwise 404 LEAD_NOT_EXIST.\n- Default mode (currentId=0): offset + limit pagination, ordered by sort and order.\n- Cursor mode (currentId > 0): the sort parameter is ignored; entries are ordered by id, with timelineTime as secondary key, matching the direction in order.\n- limit outside [1, 1000] is silently reset to 10; offset < 0 is silently reset to 0; offset + limit > 20000 returns 400 OFFSET_EXCEED_LIMIT.\n- sort=createTime (default) orders by the entry time as logged by the agent (usually equal to the record's creation time). sort=id orders by the entry's ID.\n- order=asc (default) returns oldest first; pass order=desc for newest first.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead whose manual logs to return."
+        },
+        {
+          "name": "logType",
+          "in": "query",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "Channel filter. Case-sensitive."
+        },
+        {
+          "name": "offset",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Zero-based index of the first entry to return. Values < 0 are silently reset to 0. Ignored when currentId > 0."
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of entries to return per page. Values outside [1, 1000] are silently reset to 10. offset + limit must not exceed 20000."
+        },
+        {
+          "name": "currentId",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": "This parameter is used for page turning. When searching by ID is invoked, the interface would starts from this ID, and retrieve data sequentially. It is recommended to use this parameter as a replacement for offset to turn the page within the limit."
+        },
+        {
+          "name": "sort",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Sort field. 'createTime' orders by the entry's logged time; 'id' orders by the entry's ID. Ignored in cursor mode."
+        },
+        {
+          "name": "order",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Sort direction. 'asc' returns oldest first; 'desc' returns newest first."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "add_2",
+      "method": "POST",
+      "path": "/v1.0/logType",
+      "summary": "Add a manual log entry",
+      "description": "Creates a manual log entry (logCall, logEmail or logText) for the target lead.\n\nNotes:\n- Persistence is asynchronous. The response returns the new entry's ID once the write is enqueued; the entry becomes readable after a short delay.\n- Caller must have access to the lead (owner, shared agent, or assigned lender), and the lead must not be trashed. Otherwise 404 LEAD_NOT_EXIST.\n- leadId, logType and content are required for all channels.\n- content is silently truncated to 5000 characters.\n- outboundOrInbound must be exactly 'outbound' or 'inbound' when supplied; omitted values default to 'outbound'.\n- For logCall: leadPhoneNumber is required (max 20 characters). callingOutcome is optional (max 20 characters); values outside the known set are silently normalized to 'Talked' during persistence.\n- For logEmail: emailSubject / toEmail / fromEmail are optional and accepted as-is.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/LogTypeRequest",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "delete_2",
+      "method": "DELETE",
+      "path": "/v1.0/logType/{logTypeId}",
+      "summary": "Delete a manual log entry",
+      "description": "Deletes a manual log entry by ID. Only entries whose logType is logCall, logEmail or logText can be deleted through this endpoint; deletion of other timeline types returns 404 RESOURCE_NOT_EXIST.\n\nCaller must have manage permission on the lead that owns the entry. The response body is empty.",
+      "parameters": [
+        {
+          "name": "logTypeId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the manual log entry to delete."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getLogCallId",
+      "method": "GET",
+      "path": "/v1.0/logType/{logTypeId}",
+      "summary": "Get a manual log entry by ID",
+      "description": "Returns a single manual log entry by its ID.\n\nReturns 404 RESOURCE_NOT_EXIST when:\n- The ID does not exist or has been deleted.\n- The ID exists but its logType is not one of logCall, logEmail or logText.\n\nAn ID returned by POST /v1.0/logType may briefly return 404 here until the asynchronous write has been applied.",
+      "parameters": [
+        {
+          "name": "logTypeId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the manual log entry to retrieve."
+        }
+      ],
+      "requestBody": null
+    }
+  ]
+}

@@ -1,0 +1,208 @@
+{
+  "resource": "lead-transaction",
+  "tag": "Lead Transaction",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 8,
+  "operations": [
+    {
+      "operationId": "updateTransactionFromBrokermint",
+      "method": "PUT",
+      "path": "/v1.0/brokermint/transaction",
+      "summary": "Brokermint \u2014 Sync Transaction",
+      "description": "Callback endpoint for Brokermint integration to sync transaction updates into Lofty.\n\nThe transaction must be linked to Brokermint via the Lofty UI before this endpoint can update it. See the request body schema for supported fields.",
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/IncomingTransaction",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "addTransaction",
+      "method": "POST",
+      "path": "/v1.0/leads/{leadId}/transaction",
+      "summary": "Create Transaction",
+      "description": "Creates a new transaction under the given lead.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Lead ID. Must be manageable by the caller."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/LeadTransaction",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "updateTransactionPropertyAddress",
+      "method": "POST",
+      "path": "/v1.0/leads/{leadId}/transaction/property/address",
+      "summary": "Update Property Address",
+      "description": "Updates the property address of a transaction. The `transactionId` is carried in the request body, not the URL.\n\n**Full replacement** \u2014 omitted fields are set to null. To update a single field, GET the current address first, modify, then resubmit the whole object.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Lead ID. Must be manageable by the caller."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/LeadTransactionPropertyAddress",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "getTransactionsByTransactionId",
+      "method": "GET",
+      "path": "/v1.0/leads/{leadId}/transaction/{transactionId}",
+      "summary": "Get Transaction",
+      "description": "Fetches a single transaction that belongs to the given lead.\n\nPrerequisites:\n- leadId must be manageable by the caller; otherwise 404 LEAD_NOT_EXIST.\n- transactionId must exist, not be deleted, AND belong to leadId; otherwise 404 TRANSACTION_NOT_EXIST. For security, cross-lead transactionIds are treated as 'not exist' rather than 'forbidden'.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Lead ID. Must be manageable by the caller."
+        },
+        {
+          "name": "transactionId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Transaction ID. Must exist and be bound to leadId."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "updateTransaction",
+      "method": "PUT",
+      "path": "/v1.0/leads/{leadId}/transaction/{transactionId}",
+      "summary": "Update Transaction",
+      "description": "Partially updates an existing transaction. Only supplied fields are applied; omitted fields remain unchanged. `transactionStatus` is writable: supply the stage's display name exactly as it appears in the team's transaction pipeline for the given `transactionType` (case-insensitive, e.g. \"Under Contract\"). A status name that matches no stage in that pipeline is rejected (200125); omit the field to keep the current status.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Lead ID. Must be manageable by the caller."
+        },
+        {
+          "name": "transactionId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Transaction ID. Must exist and be bound to leadId."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "schemaRef": "#/components/schemas/LeadTransaction",
+        "inlineType": null
+      }
+    },
+    {
+      "operationId": "getTransactionPropertyAddress",
+      "method": "GET",
+      "path": "/v1.0/leads/{leadId}/transaction/{transactionId}/property/address",
+      "summary": "Get Property Address",
+      "description": "Returns the property address associated with a transaction.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Lead ID. Must be manageable by the caller."
+        },
+        {
+          "name": "transactionId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Transaction ID. Must exist and be bound to leadId."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "listTransactionsByLeadId",
+      "method": "GET",
+      "path": "/v1.0/leads/{leadId}/transactions",
+      "summary": "List by Lead",
+      "description": "Returns all transactions attached to the given lead.",
+      "parameters": [
+        {
+          "name": "leadId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Lead ID. Must belong to the caller's team and be manageable by the caller."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getTransactionCustomFields",
+      "method": "GET",
+      "path": "/v1.0/transaction/customfields",
+      "summary": "List Transaction Custom Fields",
+      "description": "Returns the team-level custom field definitions applicable to transactions. Use the returned ids when populating LeadTransaction.customFields on create / update.\n\nScope: the caller's team.",
+      "parameters": [],
+      "requestBody": null
+    }
+  ]
+}

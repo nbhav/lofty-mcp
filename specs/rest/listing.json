@@ -1,0 +1,141 @@
+{
+  "resource": "listing",
+  "tag": "Listing",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 2,
+  "operations": [
+    {
+      "operationId": "getPublishedListings",
+      "method": "GET",
+      "path": "/v1.0/getPublishedListings",
+      "summary": "Get Published Listings",
+      "description": "Returns the caller team's published listings as an XML feed. Intended for external syndication partners; the response content type is application/xml.",
+      "parameters": [
+        {
+          "name": "type",
+          "in": "query",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "Feed variant to emit."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getByUserId",
+      "method": "GET",
+      "path": "/v1.0/listing",
+      "summary": "Search by Agent / Office",
+      "description": "Searches active and sold listings for a specific agent (the caller by default), their office, or a set of MLS listing IDs.\n\nNotes:\n- limit must be in (0, 1000]; otherwise 400 LISTING_LIMIT_NOT_VALID.\n- listingId and soldListingId cannot be supplied together; doing so returns an error envelope on HTTP 200.\n- At least one of agentListings, officeListings, listingId, soldListingId, mlsListingIds, buildingName, or buildingAddress must identify the search target.\n- When userId differs from the caller, caller must have MANAGE_TEAM_AGENT permission.",
+      "parameters": [
+        {
+          "name": "userId",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int64",
+          "description": null
+        },
+        {
+          "name": "listingId",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": null
+        },
+        {
+          "name": "nextPageKey",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": null
+        },
+        {
+          "name": "soldNextPageKey",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": null
+        },
+        {
+          "name": "mlsListingIds",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": null
+        },
+        {
+          "name": "street",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": null
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": null
+        },
+        {
+          "name": "soldListingId",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": null
+        },
+        {
+          "name": "officeListings",
+          "in": "query",
+          "required": false,
+          "type": "boolean",
+          "format": null,
+          "description": null
+        },
+        {
+          "name": "agentListings",
+          "in": "query",
+          "required": false,
+          "type": "boolean",
+          "format": null,
+          "description": null
+        },
+        {
+          "name": "buildingName",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": null
+        },
+        {
+          "name": "buildingAddress",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": null
+        },
+        {
+          "name": "showCondition",
+          "in": "query",
+          "required": false,
+          "type": "boolean",
+          "format": null,
+          "description": null
+        }
+      ],
+      "requestBody": null
+    }
+  ]
+}

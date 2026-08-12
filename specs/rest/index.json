@@ -1,0 +1,72 @@
+{
+  "purpose": "REST-endpoint specs for the Lofty MCP server, mechanically generated from specs/openapi.json by scripts/generate_rest_specs.py (one file per OpenAPI tag). Supersedes the old CLI-based specs/cli/*.json entirely — lofty-cli cannot authenticate with the credential this project uses (see authCorrection below), so the server calls https://api.lofty.com directly.",
+  "generatedAt": "2026-08-12",
+  "sourceSpec": "specs/openapi.json (102 operations, 27 tags, OpenAPI 3.0.1, server https://api.lofty.com)",
+  "authCorrection": {
+    "problem": "Every operation in specs/openapi.json documents 'Authorization: Bearer [access_token]' as a required header parameter. That header parameter is stripped out of every specs/rest/*.json operation entry (it's transport-level, injected by src/lofty_mcp/rest_client.py, never a tool-facing argument) — but the scheme it documents is also simply wrong for the credential this project has.",
+      "empiricalFinding": "This project's credential is a REST personal-access API key (Lofty CRM → Settings → Integrations → API). Verified 2026-08-12 directly against GET https://api.lofty.com/v1.0/leads: 'Authorization: token <key>' → HTTP 200 with real data (454 leads). 'Authorization: Bearer <key>' → HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. The same Bearer rejection was independently reproduced via lofty-cli (a completely different client), confirming it's a real API-level rejection, not a client bug.",
+    "conclusion": "Always send 'Authorization: token {LOFTY_API_KEY}'. Never Bearer. This is the single most load-bearing fact in this spec set."
+  },
+  "noRefreshLogic": "This credential has 'configurable expiration' per the REST auth docs and no documented refresh flow (unlike OAuth access/refresh token pairs). src/lofty_mcp/rest_client.py does not retry or refresh on 401 — it raises a clear error telling the user to regenerate the key in Settings → Integrations → API.",
+  "versionDecisions": [
+    {
+      "resource": "tasks-appointments",
+      "decision": "Use /v2.0/tasks* exclusively, not /v1.0/tasks*.",
+      "why": "v2 is a strict superset: adds finish/unfinish and my-tasks (GET /v2.0/tasks/my-tasks) that v1 lacks entirely. Matches what the old CLI wrapper (src/tools/tasksAppointments.ts, now deleted) targeted.",
+      "specFiles": ["tasks-appointments-v2.json (use this)", "tasks-appointments.json (v1, not used)"]
+    },
+    {
+      "resource": "communication",
+      "decision": "Mixed: send-sms/send-email stay v1 (only version); call-history uses the v2-flavored endpoint that's still under the /v1.0 path prefix (GET /v1.0/communication/call/v2); email/text history stay plain v1 (no v2 variant exists); agent-communication search uses GET /v2.0/communication/agent, not POST /v1.0/agent/communication.",
+      "why": "GET /v1.0/communication/call/v2's own description says it includes 'additional event types not covered by the v1 variant' with an identical parameter shape (leadId, offset, limit, currentId) — strictly better, same signature, trivial swap. For agent-communication, GET /v2.0/communication/agent is a clean cursor-paginated GET (type/startTime/endTime/limit/cursor/teamView query params) vs. the v1 POST with a full CommunicationRequest JSON body — GET+query-params matches the tool's existing filter-style interface much better.",
+      "specFiles": ["communication.json (v1, mostly used)", "communication-v2.json (used only for agent-communication)"]
+    },
+    {
+      "resource": "leads",
+      "decision": "Only /v1.0/leads* exists — no fork.",
+      "specFiles": ["leads.json"]
+    },
+    {
+      "resource": "calendar",
+      "decision": "Only /v2.0/calendar* exists — no fork.",
+      "specFiles": ["calendar-v2-api.json"]
+    },
+    {
+      "resource": "notes",
+      "decision": "Only /v1.0/notes* exists — no fork.",
+      "specFiles": ["notes.json"]
+    }
+  ],
+  "resources": [
+    { "resource": "leads", "file": "leads.json", "implemented": true, "implementationFile": "src/lofty_mcp/tools/leads.py" },
+    { "resource": "tasks-appointments-v2", "file": "tasks-appointments-v2.json", "implemented": true, "implementationFile": "src/lofty_mcp/tools/tasks.py" },
+    { "resource": "calendar-v2-api", "file": "calendar-v2-api.json", "implemented": true, "implementationFile": "src/lofty_mcp/tools/calendar.py" },
+    { "resource": "communication", "file": "communication.json", "implemented": true, "implementationFile": "src/lofty_mcp/tools/communication.py" },
+    { "resource": "communication-v2", "file": "communication-v2.json", "implemented": "partial (agent-communication only)", "implementationFile": "src/lofty_mcp/tools/communication.py" },
+    { "resource": "notes", "file": "notes.json", "implemented": true, "implementationFile": "src/lofty_mcp/tools/notes.py" },
+    { "resource": "members", "file": "members.json", "implemented": "partial (GET /v1.0/me only, as lofty_whoami)", "implementationFile": "src/lofty_mcp/tools/whoami.py" },
+
+    { "resource": "tasks-appointments", "file": "tasks-appointments.json", "implemented": false, "notes": "v1, superseded by tasks-appointments-v2 for this project — kept only for reference." },
+    { "resource": "transactions-v2", "file": "transactions-v2.json", "implemented": false },
+    { "resource": "lead-transaction", "file": "lead-transaction.json", "implemented": false },
+    { "resource": "calls", "file": "calls.json", "implemented": false },
+    { "resource": "sales-agents-v2", "file": "sales-agents-v2.json", "implemented": false },
+    { "resource": "agents-v2", "file": "agents-v2.json", "implemented": false },
+    { "resource": "agent-organization", "file": "agent-organization.json", "implemented": false },
+    { "resource": "agent-user", "file": "agent-user.json", "implemented": false },
+    { "resource": "intelligent-features", "file": "intelligent-features.json", "implemented": false },
+    { "resource": "lead-activity-v2-api", "file": "lead-activity-v2-api.json", "implemented": false, "notes": "leads.json also has GET /v1.0/leads/{leadId}/activities — confirm overlap before implementing this one." },
+    { "resource": "lead-routing", "file": "lead-routing.json", "implemented": false },
+    { "resource": "lead-manual-log", "file": "lead-manual-log.json", "implemented": false },
+    { "resource": "lead-system-logs", "file": "lead-system-logs.json", "implemented": false },
+    { "resource": "listing", "file": "listing.json", "implemented": false },
+    { "resource": "listing-v2", "file": "listing-v2.json", "implemented": false },
+    { "resource": "notifications-v2", "file": "notifications-v2.json", "implemented": false },
+    { "resource": "opportunity", "file": "opportunity.json", "implemented": false },
+    { "resource": "team-features", "file": "team-features.json", "implemented": false },
+    { "resource": "vendor", "file": "vendor.json", "implemented": false, "notes": "Single GET /v1.0/vendor/list endpoint — trivial to add." },
+    { "resource": "webhooks", "file": "webhooks.json", "implemented": false, "notes": "Registers an external callback URL — more consequential than the read-mostly tools; consider gating/confirmation if implemented." }
+  ],
+  "sixtyFourBitIds": "Not a concern in this Python implementation. Python's int is arbitrary-precision and httpx's .json() (stdlib json) parses large integers natively — unlike the deleted TypeScript version, no 'never coerce to Number' discipline is needed anywhere in this codebase.",
+  "regenerating": "Run `python scripts/generate_rest_specs.py` (inside the project's Docker image, per project convention — see README) after re-fetching specs/openapi.json from https://developer.lofty.com/openapi/openapi.json if Lofty's API surface changes. It overwrites every specs/rest/*.json except this index.json, which is hand-maintained."
+}

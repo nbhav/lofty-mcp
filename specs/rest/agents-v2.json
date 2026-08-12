@@ -1,0 +1,61 @@
+{
+  "resource": "agents-v2",
+  "tag": "Agents V2",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 2,
+  "operations": [
+    {
+      "operationId": "deactivateAgent",
+      "method": "POST",
+      "path": "/v2.0/agents/{agentId}/deactivate",
+      "summary": "Deactivate an agent",
+      "description": "Deactivates the specified agent of the caller's team.\n\nEffects:\n- The agent's license seat is released immediately.\n- All CRM sessions and access tokens of the agent are revoked; subsequent API calls with the agent's tokens are rejected.\n- The agent's leads, deals and data remain untouched and stay assigned to the agent.\n- The operation is reversible via the reactivate endpoint; it is NOT a deletion.\n\nConstraints:\n- The caller must have team-agent management permission (MANAGE_TEAM_AGENT or MANAGE_TEAM_AGENT_DEPARTMENT).\n- The target agent must belong to the caller's team, must currently be active, and must not be the team owner, an office owner or the caller themselves.",
+      "parameters": [
+        {
+          "name": "agentId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "User ID of the agent to deactivate."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "reactivateAgent",
+      "method": "POST",
+      "path": "/v2.0/agents/{agentId}/reactivate",
+      "summary": "Reactivate an agent",
+      "description": "Reactivates a previously deactivated agent of the caller's team.\n\nEffects:\n- The agent re-occupies a license seat (the team must have a free seat available).\n- The agent's access is restored without data loss; the agent stays in the original office with the original seat type.\n\nConstraints:\n- The caller must have team-agent management permission (MANAGE_TEAM_AGENT or MANAGE_TEAM_AGENT_DEPARTMENT).\n- The target agent must belong to the caller's team and must currently be deactivated.\n- When the team has no free seat, the call fails with SEAT_INSUFFICIENT (310111); additional seats must be purchased in the Lofty UI first.",
+      "parameters": [
+        {
+          "name": "agentId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "User ID of the agent to reactivate."
+        },
+        {
+          "name": "Content-Type",
+          "in": "header",
+          "required": true,
+          "type": "string",
+          "format": null,
+          "description": "application/json"
+        }
+      ],
+      "requestBody": null
+    }
+  ]
+}

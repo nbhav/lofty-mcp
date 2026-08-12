@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "lofty": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--env-file",
+        "/Users/neilbhavsar/repositories/realtor/lofty_mcp/.env",
+        "lofty-mcp:py"
+      ]
+    }
+  }
+}

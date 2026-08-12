@@ -1,0 +1,79 @@
+{
+  "resource": "calls",
+  "tag": "Calls",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 3,
+  "operations": [
+    {
+      "operationId": "getCallRecordUrl",
+      "method": "GET",
+      "path": "/v1.0/call/url/{callId}",
+      "summary": "Get a call recording URL",
+      "description": "Returns a temporary download URL for the audio recording of a call.\n\nNotes:\n- The URL is valid for 1 hour.\n- Caller must have manage permission on the lead this call belongs to; otherwise 400 PERMISSION_DENIED is returned.\n- When the call has no recording available, the 'url' field is an empty string.",
+      "parameters": [
+        {
+          "name": "callId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the call."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getList",
+      "method": "GET",
+      "path": "/v1.0/calls",
+      "summary": "List calls of a lead",
+      "description": "Returns call records attached to the given lead, with pagination metadata.\n\nNotes:\n- leadId is required and must be > 0; otherwise 404 LEAD_NOT_FOUND.\n- Caller must have manage permission on the lead; otherwise 400 PERMISSION_DENIED.\n- total in _metadata reflects the full result size before pagination.",
+      "parameters": [
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of results to return per page."
+        },
+        {
+          "name": "offset",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Zero-based index of the first entry to return."
+        },
+        {
+          "name": "leadId",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the lead whose calls to return."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "get_1",
+      "method": "GET",
+      "path": "/v1.0/calls/{callId}",
+      "summary": "Get a call by ID",
+      "description": "Returns a single call record by ID. Caller must have manage permission on the lead the call belongs to; otherwise 400 PERMISSION_DENIED.",
+      "parameters": [
+        {
+          "name": "callId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the call."
+        }
+      ],
+      "requestBody": null
+    }
+  ]
+}

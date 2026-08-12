@@ -1,0 +1,121 @@
+{
+  "resource": "communication-v2",
+  "tag": "Communication V2",
+  "sourceSpec": "specs/openapi.json",
+  "authNote": "Every operation's OpenAPI doc says 'Authorization: Bearer [access_token]' \u2014 that is WRONG for the personal-access API key this project uses. Empirically confirmed working: 'Authorization: token <key>'. Bearer returns HTTP 400 {\"code\":200058,\"message\":\"User in token does not exist.\"}. See specs/rest/index.json.",
+  "operationCount": 4,
+  "operations": [
+    {
+      "operationId": "searchByAgent",
+      "method": "GET",
+      "path": "/v2.0/communication/agent",
+      "summary": "Search communications by Agent (cursor paged)",
+      "description": "Returns communication timeline entries for the caller (or the caller's team when teamView=true, requiring ACCESS_ALL_TEAM_LEADS permission) within a time range.\n\n- The time window (endTime - startTime) may span up to 90 days in a single query.\n- type accepts CALL, TEXT, EMAIL, or ALL to fetch all three together in one request.\n- limit controls the page size and must be between 1 and 1000 (default 100).\n- Cursor pagination: the response returns a nextCursor token; pass it back as the 'cursor' parameter to fetch the next page. Keep paging while nextCursor is non-null and stop when it is null. Because a full page cannot tell whether more entries exist, the last page may come back with an empty data array and nextCursor=null - treat that as end-of-data, not an error. This is the recommended way to sync large or historical ranges.",
+      "parameters": [
+        {
+          "name": "type",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Communication type to query: CALL, TEXT, EMAIL or ALL."
+        },
+        {
+          "name": "startTime",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Start timestamp (epoch milliseconds), inclusive."
+        },
+        {
+          "name": "endTime",
+          "in": "query",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "End timestamp (epoch milliseconds), inclusive. The interval (endTime - startTime) cannot exceed 90 days."
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of entries per page."
+        },
+        {
+          "name": "cursor",
+          "in": "query",
+          "required": false,
+          "type": "string",
+          "format": null,
+          "description": "Opaque pagination token returned as nextCursor by the previous page. Omit for the first page."
+        },
+        {
+          "name": "teamView",
+          "in": "query",
+          "required": false,
+          "type": "boolean",
+          "format": null,
+          "description": "Search the team leads' communications. Requires ACCESS_ALL_TEAM_LEADS permission. Default false."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getCall",
+      "method": "GET",
+      "path": "/v2.0/communication/call/{communicationId}",
+      "summary": "Get a call by ID",
+      "description": "Returns the call identified by the given communication ID. The communication must be a call record, and the caller must have manage permission on the owning lead; otherwise 400 PERMISSION_DENIED is returned (no existence leak). Manually logged calls (those with no backing dialer record) are populated from the communication content itself \u2014 leadPhoneNumber from the logged number and direction inferred from the channel; dialer-only fields (elapsedTime, status, etc.) are omitted.\n\nWebhook follow-up: when a Call webhook is delivered, pass each `createdCall[].timelineId` from the payload as the `communicationId` path parameter to fetch the full record. The legacy `createdCall[].callId` field is kept for backward compatibility but is not interchangeable across communicationType (it points at the dialer record for MANUAL calls) \u2014 prefer `timelineId`.",
+      "parameters": [
+        {
+          "name": "communicationId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Communication ID of the call."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getEmail",
+      "method": "GET",
+      "path": "/v2.0/communication/email/{communicationId}",
+      "summary": "Get an email by ID",
+      "description": "Returns the email identified by the given communication ID. The communication must be an email record, and the caller must have manage permission on the owning lead; otherwise 400 PERMISSION_DENIED is returned (no existence leak).\n\nWebhook follow-up: when an Email webhook is delivered, pass each `createdEmail[].timelineId` from the payload as the `communicationId` path parameter to fetch the full record. The legacy `createdEmail[].emailId` field is kept for backward compatibility but is not interchangeable across communicationType \u2014 prefer `timelineId`.",
+      "parameters": [
+        {
+          "name": "communicationId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Communication ID of the email."
+        }
+      ],
+      "requestBody": null
+    },
+    {
+      "operationId": "getText",
+      "method": "GET",
+      "path": "/v2.0/communication/text/{communicationId}",
+      "summary": "Get a text message by ID",
+      "description": "Returns the text message identified by the given communication ID. The communication must be a text record, and the caller must have manage permission on the owning lead; otherwise 400 PERMISSION_DENIED is returned (no existence leak).\n\nWebhook follow-up: when a Text webhook is delivered, pass each `createdText[].timelineId` from the payload as the `communicationId` path parameter to fetch the full record. The legacy `createdText[].textId` field is kept for backward compatibility but is not interchangeable across communicationType \u2014 prefer `timelineId`.",
+      "parameters": [
+        {
+          "name": "communicationId",
+          "in": "path",
+          "required": true,
+          "type": "integer",
+          "format": "int64",
+          "description": "Communication ID of the text message."
+        }
+      ],
+      "requestBody": null
+    }
+  ]
+}
