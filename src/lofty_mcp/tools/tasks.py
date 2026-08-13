@@ -93,14 +93,29 @@ def register(mcp: MCPServer) -> None:
         end_at: str | None = None,
         time_zone_code: str | None = None,
         address: str | None = None,
+        clear_fields: list[str] | None = None,
     ) -> dict[str, Any]:
         """Partially update a task or appointment (PUT /v2.0/tasks/{taskId}).
 
         At least one of content/start_at/end_at/address must be supplied. Use
         lofty_tasks_finish/lofty_tasks_unfinish for completion state, not this.
+
+        Omitting a parameter (leaving it None) leaves that field unchanged -- there's no
+        way to *clear* an optional field just by passing None. Use clear_fields for that:
+        a list of this tool's own parameter names (e.g. ["address"]) to explicitly null
+        out in the request, even though that parameter wasn't otherwise supplied.
         """
         client = ctx.request_context.lifespan_context.client
+        field_map = {
+            "content": "content",
+            "start_at": "startAt",
+            "end_at": "endAt",
+            "time_zone_code": "timeZoneCode",
+            "address": "address",
+        }
         body = compact(content=content, startAt=start_at, endAt=end_at, timeZoneCode=time_zone_code, address=address)
+        for field in clear_fields or []:
+            body[field_map.get(field, field)] = None
         return await request(client, "PUT", f"/v2.0/tasks/{task_id}", json=body)
 
     @mcp.tool(

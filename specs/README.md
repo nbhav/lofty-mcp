@@ -33,5 +33,5 @@ generator) and holds the facts that matter most before touching any tool code:
 - **`resources`** — implemented vs. pending, with the target implementation file for
   each.
 
-See the root [`README.md`](../README.md) for why this project calls the REST API
+See the root [`DESIGN.md`](../DESIGN.md) for why this project calls the REST API
 directly instead of wrapping `lofty-cli`.

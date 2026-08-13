@@ -7,7 +7,23 @@ HTTP_CONTAINER  := lofty-mcp-http
 TUNNEL_LOG      := .cloudflared-tunnel.log
 TUNNEL_PID      := .cloudflared-tunnel.pid
 
-.PHONY: help build up down status test clean http-up http-down http-status
+# Picks up TUNNEL_NAME/TUNNEL_HOSTNAME (and anything else) from .env if present, so the
+# persistent-tunnel targets below don't need them repeated on the command line every
+# time. `-include` (not `include`) so a missing .env doesn't hard-fail targets that
+# don't need it. Command-line `make target VAR=...` still overrides whatever .env sets.
+-include .env
+
+# Defaults for the persistent (named) tunnel + Cloudflare Access OAuth workflow --
+# see `make help`'s tunnel-* entries. TUNNEL_HOSTNAME has no default: it's specific to
+# a Cloudflare zone you own, so it must come from .env or the command line.
+TUNNEL_NAME          ?= lofty-mcp
+TUNNEL_HOSTNAME      ?=
+CLOUDFLARED_CONFIG   := $(CURDIR)/.cloudflared/config.yml
+PERSISTENT_TUNNEL_LOG := .cloudflared-persistent-tunnel.log
+PERSISTENT_TUNNEL_PID := .cloudflared-persistent-tunnel.pid
+
+.PHONY: help build up down status test clean http-up http-down http-status \
+	tunnel-login tunnel-create http-up-persistent http-down-persistent http-status-persistent
 
 help:
 	@echo "make build       - docker build the lofty-mcp image"
@@ -19,6 +35,13 @@ help:
 	@echo "make http-up     - run the server in HTTP mode + a cloudflared quick tunnel, for Cowork"
 	@echo "make http-down   - stop the HTTP container and the tunnel"
 	@echo "make http-status - show the HTTP container and tunnel URL, if running"
+	@echo ""
+	@echo "Persistent tunnel (fixed hostname, Cloudflare Access OAuth-capable) -- see README.md:"
+	@echo "make tunnel-login          - one-time: authorize cloudflared against your Cloudflare account"
+	@echo "make tunnel-create         - create/reuse the named tunnel and route TUNNEL_HOSTNAME (from .env) to it"
+	@echo "make http-up-persistent    - run the server + the named tunnel at TUNNEL_HOSTNAME"
+	@echo "make http-down-persistent  - stop the HTTP container and the named tunnel"
+	@echo "make http-status-persistent - show the HTTP container and named tunnel status"
 
 build:
 	docker build -t $(IMAGE) .
@@ -91,7 +114,8 @@ http-up: build
 		fi; \
 		sleep 1; \
 	done; \
-	echo "Tunnel URL not found yet after 10s -- check $(TUNNEL_LOG) or run 'make http-status'."
+	echo "Tunnel URL not found yet after 10s -- check $(TUNNEL_LOG) or run 'make http-status'." >&2; \
+	exit 1
 
 http-down:
 	@docker rm -f $(HTTP_CONTAINER) >/dev/null 2>&1 && echo "Stopped $(HTTP_CONTAINER)." || echo "$(HTTP_CONTAINER) was not running."
@@ -108,6 +132,78 @@ http-status:
 	@if [ -f "$(TUNNEL_LOG)" ]; then \
 		url=$$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' "$(TUNNEL_LOG)" | head -1); \
 		if [ -n "$$url" ]; then echo "tunnel: $$url/mcp"; else echo "tunnel: starting..."; fi; \
+	else \
+		echo "tunnel: not running"; \
+	fi
+
+# --- Persistent (named) tunnel, for a fixed hostname you can put behind Cloudflare
+# Access (Zero Trust) for real OAuth login -- unlike the quick tunnel above, which is
+# random-hostname and stateless. TUNNEL_NAME/TUNNEL_HOSTNAME come from .env (or the
+# command line); see README.md "Connecting to a remote client" for the one-time
+# Cloudflare-side setup (adding a domain, running tunnel-login, configuring Access).
+
+# One-time: opens a browser to authorize cloudflared against your Cloudflare account
+# and writes ~/.cloudflared/cert.pem. Needed once per machine before tunnel-create.
+tunnel-login:
+	@command -v cloudflared >/dev/null 2>&1 || { echo "cloudflared is required (brew install cloudflare/cloudflare/cloudflared)" >&2; exit 1; }
+	cloudflared tunnel login
+	@echo "Logged in. Next: set TUNNEL_HOSTNAME in $(ENV_FILE) and run 'make tunnel-create'."
+
+# Creates the named tunnel (reusing it if it already exists), routes TUNNEL_HOSTNAME's
+# DNS to it, and writes $(CLOUDFLARED_CONFIG) pointing at this machine's local HTTP
+# port. Safe to re-run.
+tunnel-create:
+	@command -v cloudflared >/dev/null 2>&1 || { echo "cloudflared is required (brew install cloudflare/cloudflare/cloudflared)" >&2; exit 1; }
+	@command -v jq >/dev/null 2>&1 || { echo "jq is required (brew install jq)" >&2; exit 1; }
+	@test -n "$(TUNNEL_HOSTNAME)" || { echo "Error: TUNNEL_HOSTNAME is not set -- add TUNNEL_HOSTNAME=lofty-mcp.yourdomain.com to $(ENV_FILE), or pass it on the command line." >&2; exit 1; }
+	@cloudflared tunnel list --output json 2>/dev/null | jq -e --arg name "$(TUNNEL_NAME)" '.[] | select(.name == $$name)' >/dev/null 2>&1 \
+		|| cloudflared tunnel create $(TUNNEL_NAME)
+	@tunnel_id=$$(cloudflared tunnel list --output json | jq -r --arg name "$(TUNNEL_NAME)" '.[] | select(.name == $$name) | .id'); \
+	if [ -z "$$tunnel_id" ]; then echo "Error: could not find tunnel '$(TUNNEL_NAME)' after creating it." >&2; exit 1; fi; \
+	mkdir -p "$(CURDIR)/.cloudflared"; \
+	printf 'tunnel: %s\ncredentials-file: %s/.cloudflared/%s.json\ningress:\n  - hostname: %s\n    service: http://localhost:$(HTTP_PORT)\n  - service: http_status:404\n' \
+		"$$tunnel_id" "$$HOME" "$$tunnel_id" "$(TUNNEL_HOSTNAME)" > "$(CLOUDFLARED_CONFIG)"; \
+	echo "Wrote $(CLOUDFLARED_CONFIG) for tunnel '$(TUNNEL_NAME)' ($$tunnel_id)"
+	cloudflared tunnel route dns $(TUNNEL_NAME) $(TUNNEL_HOSTNAME)
+	@echo ""
+	@echo "Tunnel '$(TUNNEL_NAME)' is routed to https://$(TUNNEL_HOSTNAME)"
+	@echo "Next: in the Cloudflare Zero Trust dashboard, add an Access application for"
+	@echo "that hostname with an OAuth identity provider, then run 'make http-up-persistent'."
+
+# Runs the server in HTTP mode + the named tunnel (fixed hostname, survives restarts).
+# If you've put Cloudflare Access in front of TUNNEL_HOSTNAME, requests now require a
+# real OAuth login before they ever reach this container.
+http-up-persistent: build
+	@command -v cloudflared >/dev/null 2>&1 || { echo "cloudflared is required (brew install cloudflare/cloudflare/cloudflared)" >&2; exit 1; }
+	@test -f "$(ENV_FILE)" || { echo "Error: $(ENV_FILE) not found -- create it with LOFTY_API_KEY=<your key> first." >&2; exit 1; }
+	@test -n "$(TUNNEL_HOSTNAME)" || { echo "Error: TUNNEL_HOSTNAME is not set -- add it to $(ENV_FILE) first." >&2; exit 1; }
+	@test -f "$(CLOUDFLARED_CONFIG)" || { echo "Error: $(CLOUDFLARED_CONFIG) not found -- run 'make tunnel-create' first." >&2; exit 1; }
+	@docker rm -f $(HTTP_CONTAINER) >/dev/null 2>&1 || true
+	docker run -d --rm --name $(HTTP_CONTAINER) -p $(HTTP_PORT):8000 \
+		--env-file "$(ENV_FILE)" -e MCP_TRANSPORT=http $(IMAGE) >/dev/null
+	@echo "Container listening on http://localhost:$(HTTP_PORT)/mcp"
+	@rm -f "$(PERSISTENT_TUNNEL_LOG)"
+	@nohup cloudflared tunnel --config "$(CLOUDFLARED_CONFIG)" run $(TUNNEL_NAME) > "$(PERSISTENT_TUNNEL_LOG)" 2>&1 & echo $$! > "$(PERSISTENT_TUNNEL_PID)"
+	@sleep 2
+	@echo "Persistent tunnel URL: https://$(TUNNEL_HOSTNAME)/mcp"
+	@echo "(check $(PERSISTENT_TUNNEL_LOG) if connections aren't showing up within a few seconds)"
+
+http-down-persistent:
+	@docker rm -f $(HTTP_CONTAINER) >/dev/null 2>&1 && echo "Stopped $(HTTP_CONTAINER)." || echo "$(HTTP_CONTAINER) was not running."
+	@if [ -f "$(PERSISTENT_TUNNEL_PID)" ]; then \
+		kill $$(cat "$(PERSISTENT_TUNNEL_PID)") 2>/dev/null && echo "Stopped persistent cloudflared tunnel." || true; \
+		rm -f "$(PERSISTENT_TUNNEL_PID)"; \
+	fi
+	@rm -f "$(PERSISTENT_TUNNEL_LOG)"
+
+http-status-persistent:
+	@docker ps --filter name=$(HTTP_CONTAINER) --format '{{.Names}}: {{.Status}}' | grep -q . \
+		&& docker ps --filter name=$(HTTP_CONTAINER) --format 'container: {{.Status}}' \
+		|| echo "container: not running"
+	@if [ -n "$(TUNNEL_HOSTNAME)" ] && [ -f "$(PERSISTENT_TUNNEL_PID)" ]; then \
+		echo "tunnel: https://$(TUNNEL_HOSTNAME)/mcp (persistent, tunnel '$(TUNNEL_NAME)')"; \
+	elif [ -z "$(TUNNEL_HOSTNAME)" ]; then \
+		echo "tunnel: TUNNEL_HOSTNAME not set in $(ENV_FILE)"; \
 	else \
 		echo "tunnel: not running"; \
 	fi

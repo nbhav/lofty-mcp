@@ -42,10 +42,20 @@ def register(mcp: MCPServer) -> None:
         )
     )
     async def lofty_notes_update(
-        ctx: Context, note_id: int, lead_id: int, content: str, is_pin: bool = False
+        ctx: Context, note_id: int, lead_id: int, content: str, is_pin: bool | None = None
     ) -> dict[str, Any]:
-        """Update a note (PUT /v1.0/notes/{noteId}). content, lead_id, and is_pin are all required by the API."""
+        """Update a note (PUT /v1.0/notes/{noteId}). content and lead_id are required.
+
+        is_pin defaults to preserving the note's current pinned state: the API requires
+        isPin on every PUT (no partial-update semantics for it), so when is_pin isn't
+        passed explicitly, this tool first GETs the note to read its existing isPin
+        value rather than silently resetting it to false. Pass is_pin explicitly to
+        pin/unpin as part of the same call.
+        """
         client = ctx.request_context.lifespan_context.client
+        if is_pin is None:
+            current = await request(client, "GET", f"/v1.0/notes/{note_id}")
+            is_pin = bool(current.get("isPin", False))
         body = {"leadId": lead_id, "content": content, "isPin": is_pin}
         return await request(client, "PUT", f"/v1.0/notes/{note_id}", json=body)
 

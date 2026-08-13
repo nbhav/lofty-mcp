@@ -15,6 +15,7 @@ import queue
 import subprocess
 import sys
 import threading
+import time
 
 REQUESTS = [
     {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "harness", "version": "0.0.1"}}},
@@ -48,11 +49,35 @@ def main() -> None:
         proc.stdin.write(line + "\n")
         proc.stdin.flush()
         print(f">>> sent: {line}")
-        try:
-            resp = out_q.get(timeout=20)
-            print(f"<<< recv: {resp.strip()}")
-        except queue.Empty:
-            print("<<< TIMEOUT waiting for response")
+
+        expected_id = req.get("id")
+        if expected_id is None:
+            # JSON-RPC notifications (no "id", e.g. notifications/initialized) never
+            # get a response -- waiting on the queue here would just burn the full
+            # timeout every run.
+            continue
+
+        deadline = time.monotonic() + 20
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                print("<<< TIMEOUT waiting for response")
+                break
+            try:
+                resp = out_q.get(timeout=remaining)
+            except queue.Empty:
+                print("<<< TIMEOUT waiting for response")
+                break
+            try:
+                resp_id = json.loads(resp).get("id")
+            except json.JSONDecodeError:
+                resp_id = None
+            if resp_id == expected_id:
+                print(f"<<< recv: {resp.strip()}")
+                break
+            # Out-of-order/unsolicited message (e.g. a stray notification) -- don't
+            # misattribute it to this request; keep waiting within the deadline.
+            print(f"<<< (ignoring unmatched message while waiting for id={expected_id}): {resp.strip()}")
 
     proc.stdin.close()
     try:

@@ -7,6 +7,13 @@ dependencies = [
     "mcp>=2.0.0,<3",
     "httpx>=0.27",
     "python-dotenv>=1.0",
+    # Transitive deps of mcp[server], but server.py's HTTP-mode auth gate imports
+    # them directly (to wrap the Starlette app in a bearer-token check before
+    # handing off to uvicorn), so they're declared explicitly rather than relying
+    # on mcp's own requirements to keep providing them.
+    "anyio>=4.9",
+    "uvicorn>=0.31.1",
+    "starlette>=0.27",
 ]
 
 [build-system]
