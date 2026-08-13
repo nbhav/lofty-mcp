@@ -4,60 +4,62 @@ An MCP server that gives Claude tools to work with a [Lofty](https://www.lofty.c
 account — leads, tasks/appointments, calendar, communications, and notes — by calling
 Lofty's REST API directly.
 
-## Why REST, not `lofty-cli`
+For the reasoning behind how this project is built (why REST instead of `lofty-cli`,
+the auth-scheme quirk, the HTTP-mode security tradeoffs), see [`DESIGN.md`](DESIGN.md).
+This document is about what the project does and how to run it.
 
-This project started as a wrapper around Lofty's official CLI (`@loftyai/lofty-cli`), on
-the reasoning that the CLI would save us from reimplementing OAuth and from handling
-64-bit lead/task IDs ourselves. That design was abandoned after hitting a real,
-irreconcilable credential mismatch — documented here so it isn't rediscovered the hard
-way:
+## Concepts
 
-- The only credential available for this project is a Lofty **personal-access API key**
-  (generated in the CRM under **Settings → Integrations → API**).
-- That credential authenticates over HTTP as `Authorization: token <key>` — confirmed
-  empirically against `https://api.lofty.com` (`GET /v1.0/leads` → `200 OK` with real
-  data).
-- `lofty-cli` only speaks OAuth **Bearer** tokens. Every one of its auth methods (Direct
-  Token, Token URL, Browser OAuth, Client Credentials) ends in an `Authorization: Bearer
-  <token>` header. Feeding it the API key produces a real rejection from Lofty's own
-  server: `Error 400: {"code":200058,"message":"User in token does not exist."}` — not a
-  config problem, a protocol mismatch. The same request succeeds instantly with
-  `Authorization: token <key>` instead of `Bearer`.
-- Getting a CLI-compatible credential would mean either running a full browser OAuth
-  flow to mint an access/refresh token pair, or registering an OAuth app in Lofty's
-  Developer Portal for the Client Credentials flow — neither of which was available.
+- **MCP (Model Context Protocol)** is the protocol Claude uses to discover and call
+  tools exposed by an external server. This project *is* one such server: it doesn't
+  talk to Claude directly, it registers **tools** (e.g. `lofty_leads_list`,
+  `lofty_notes_create`) that a client (Claude Code, Cowork, etc.) can call on your
+  behalf.
+- **One tool module per Lofty resource.** `src/lofty_mcp/tools/` has one file per
+  resource — `leads.py`, `tasks.py`, `calendar.py`, `communication.py`, `notes.py`,
+  `whoami.py` — each registering the MCP tools for that resource's REST endpoints.
+  35 tools total today; see `specs/rest/index.json` for what's implemented vs. pending.
+- **Tool annotations.** Every tool carries
+  [MCP `ToolAnnotations`](https://modelcontextprotocol.io)
+  (`readOnlyHint`/`destructiveHint`/`idempotentHint`) — reads are marked read-only,
+  creates/sends are non-idempotent, updates/deletes are destructive — so a well-behaved
+  client can decide what to auto-approve vs. confirm with you. These are hints, not
+  enforcement: nothing in the server itself blocks a destructive call.
+- **Two transports, two use cases:**
+  - **stdio** (default) — Claude Code spawns the server as a local subprocess per
+    session. This is how you'd normally use it day to day.
+  - **Streamable HTTP** — the server runs as a long-lived process bound to a port,
+    for remote clients (e.g. Cowork's "Add custom connector") that can't spawn a
+    process on your machine. Needs a real HTTPS URL in front of it; see
+    "Connecting to a remote client" below.
+- **Auth is a single API key**, not OAuth. `LOFTY_API_KEY` is a personal-access token
+  from the Lofty CRM, sent as `Authorization: token <key>` on every request. There's no
+  refresh flow — if it stops working, you regenerate it in the CRM.
 
-Given the working credential is REST-only, wrapping the CLI was never going to work, so
-the server now calls `https://api.lofty.com` directly (see
-[`src/lofty_mcp/rest_client.py`](src/lofty_mcp/rest_client.py)). This turned out to be a
-simplification, not just a workaround:
+## Initial setup
 
-- **No token refresh logic.** A personal-access API key doesn't expire on the
-  short-lived OAuth cycle an access/refresh pair does — there's nothing to refresh. If
-  it does stop working, the fix is regenerating it in the CRM, not a retry loop (see
-  `LoftyApiError` in `rest_client.py`).
-- **No 64-bit ID precision handling.** Lofty's lead/task IDs are 64-bit integers, which
-  is a real hazard in JavaScript (`Number` loses precision above 2^53). Python's `int`
-  is arbitrary-precision, so this was a genuine source of care in an earlier
-  TypeScript/CLI prototype and simply isn't a concern here.
-- **Full, authoritative API surface for free.** Lofty publishes a complete OpenAPI spec
-  (`specs/openapi.json`, 102 operations across 27 resources) — a far more reliable
-  source than scraping the CLI's `--help` text and prose docs, which is what the earlier
-  prototype had to do. `specs/rest/*.json` is generated straight from it (see
-  [`specs/README.md`](specs/README.md)).
+You need:
 
-## Authentication
+1. **Docker.** Everything — build, run, test — happens inside containers; nothing from
+   this project's Python dependency stack is installed on your host. Install
+   [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS/Windows) or
+   Docker Engine (Linux), and confirm it's running with `docker info`.
+2. **A Lofty API key.** In the Lofty CRM, go to **Settings → Integrations → API** and
+   generate a personal-access key.
+3. **`jq`**, used by several `Makefile` targets to edit JSON config in place:
+   `brew install jq` (macOS) or your distro's package manager.
+4. *(Only if you'll use HTTP mode / remote connectors)* **`cloudflared`**:
+   `brew install cloudflare/cloudflare/cloudflared`.
 
-Single env var: `LOFTY_API_KEY`, sent as `Authorization: token <key>`. Get it from the
-Lofty CRM under **Settings → Integrations → API**. Put it in a `.env` file at the repo
-root (not committed — see `.gitignore`):
+Then create a `.env` file at the repo root (already in `.gitignore` — never commit it):
 
 ```
 LOFTY_API_KEY=your-key-here
 ```
 
-If it stops working, calls fail with a clear `LoftyApiError` pointing back at that same
-settings page — there is no refresh path, so regenerating the key is the fix.
+If the key stops working, tool calls fail with a clear `LoftyApiError` pointing back at
+Settings → Integrations → API — there's no refresh path, so regenerating the key is
+always the fix.
 
 ## Project layout
 
@@ -74,18 +76,10 @@ scripts/
   mcp_test_harness.py       reliable stdio request/response harness for smoke-testing
 Dockerfile             plain python:3.12-slim, no CLI binary needed
 Makefile               build/run/register/teardown commands (see below)
+DESIGN.md              why the project is built this way (not how to run it)
 ```
 
-Every tool carries [MCP `ToolAnnotations`](https://modelcontextprotocol.io)
-(`readOnlyHint`/`destructiveHint`/`idempotentHint`) — reads are marked read-only,
-creates/sends are marked non-idempotent, updates/deletes are marked destructive — so a
-well-behaved client can decide what to auto-approve vs. confirm. These are hints, not
-enforcement: nothing in this server itself blocks a destructive call.
-
-## Setup
-
-Requires Docker. Everything — build, run, test — happens inside containers; nothing
-from this project's dependency stack is installed on the host.
+## Building and testing
 
 ```
 make help          # list all commands
@@ -110,48 +104,74 @@ manage here.
 
 ## Connecting to a remote client (e.g. Cowork)
 
+Remote connectors need a real HTTPS URL, since they run in the cloud and can't spawn
+processes on your machine. There are two ways to get one, depending on how long-lived
+and trusted the deployment needs to be.
+
+### Quick tunnel — short-lived local testing
+
 ```
-make http-up         # runs the server in Streamable HTTP mode + a cloudflared quick tunnel
+make http-up         # runs the server in HTTP mode + a cloudflared quick tunnel
 make http-down        # tears both down
 ```
 
-Remote connectors (Anthropic's Cowork "Add custom connector" dialog, or anything else
-that talks to an MCP server over HTTP rather than spawning a local process) need a real
-HTTPS URL, since they run in the cloud and can't spawn processes on your machine. `make
-http-up` runs the server bound to `0.0.0.0:8000` and fronts it with `cloudflared tunnel
---url` (no account needed, but the URL is random and changes every run).
+`make http-up` binds the server to `0.0.0.0:8000` and fronts it with `cloudflared
+tunnel --url` — no Cloudflare account needed, but the URL is random and changes every
+run. By default this has **no authentication beyond `LOFTY_API_KEY`** baked into the
+container: anyone with the tunnel URL can call every tool, including sends and deletes.
 
-### ⚠️ This has no authentication — do not leave it running
+To close that gap for a quick tunnel session, set a shared secret before starting it:
 
-The HTTP endpoint accepts requests from **anyone who has the URL**. There is currently
-no bearer token, no OAuth, nothing checking who's calling — only `LOFTY_API_KEY` baked
-into the container's own environment. Whoever holds the tunnel URL can call every tool
-in this server against the real Lofty account, including sends (SMS/email) and deletes.
+```
+MCP_HTTP_AUTH_TOKEN=some-long-random-string make http-up
+```
 
-This is acceptable for the way `make http-up` is meant to be used: a short-lived local
-test, torn down with `make http-down` right after. It is **not** acceptable as a
-standing deployment. The "Add custom connector" dialog itself has `OAuth Client ID` /
-`OAuth Client Secret` fields for exactly this reason — before this server is exposed
-anywhere longer-lived than a quick local tunnel, it needs an actual authorization layer
-in front of the Streamable HTTP endpoint. Two ways to get there, roughly in order of
-effort:
+With `MCP_HTTP_AUTH_TOKEN` set, every request must include
+`Authorization: Bearer <that token>` or the server returns 401 before the request
+reaches any tool. Without it, the server prints a loud warning on startup and runs
+unauthenticated — fine for a few minutes of local testing torn down right after, not
+for anything left running.
 
-1. **A bearer token gate.** Cheapest option: require a shared secret in an
-   `Authorization` header on every request to `/mcp`, checked in an ASGI middleware
-   before it reaches the MCP app. Not OAuth, but closes the "anyone with the URL" hole.
-2. **A real OAuth 2.1 authorization server**, per the
-   [MCP Authorization spec](https://modelcontextprotocol.io/specification/latest/basic/authorization).
-   This is what the Cowork dialog's OAuth fields expect: the MCP server acts as an
-   OAuth *resource server*, validating bearer tokens issued by a separate *authorization
-   server* (self-hosted, or a hosted provider like Auth0/WorkOS/Stytch). This is the
-   correct answer for anything beyond solo local testing, but it's a genuinely separate
-   piece of infrastructure — an OAuth server, client registration, token issuance and
-   validation — not a config flag. Nothing in this repo implements it yet.
+### Persistent tunnel — fixed hostname, Cloudflare Access OAuth
 
-Also worth knowing: `run_streamable_http_async`'s DNS-rebinding protection
-(`transport_security`) is left at the SDK's default, which is **disabled** unless
-explicitly configured (see `src/lofty_mcp/server.py`) — another gap that matters once
-this is reachable from anywhere untrusted.
+For anything longer-lived, use a **named tunnel** at a hostname you control, and put
+[Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/)
+in front of it for real OAuth login (Google, GitHub, Okta, etc.) — unauthenticated
+requests never reach your machine at all.
+
+One-time setup, requires a domain added to your Cloudflare account:
+
+```
+make tunnel-login     # opens a browser, authorizes cloudflared against your account (once per machine)
+```
+
+Add to `.env`:
+
+```
+TUNNEL_HOSTNAME=lofty-mcp.yourdomain.com
+TUNNEL_NAME=lofty-mcp        # optional, defaults to lofty-mcp
+```
+
+Then:
+
+```
+make tunnel-create    # creates (or reuses) the named tunnel, routes TUNNEL_HOSTNAME's DNS to it
+```
+
+In the [Cloudflare Zero Trust dashboard](https://one.dash.cloudflare.com/) → Access →
+Applications, add a Self-hosted application for `TUNNEL_HOSTNAME`, pick an identity
+provider under Settings → Authentication, and add a policy allowing the people who
+should have access. Then:
+
+```
+make http-up-persistent     # runs the server + the named tunnel at TUNNEL_HOSTNAME
+make http-down-persistent   # tears both down
+make http-status-persistent # check what's running
+```
+
+Once Access is configured, `MCP_HTTP_AUTH_TOKEN` (above) is still worth setting as
+defense-in-depth at the application layer, but Access is what actually stops
+unauthenticated traffic from reaching the container.
 
 ## Adding a new tool
 

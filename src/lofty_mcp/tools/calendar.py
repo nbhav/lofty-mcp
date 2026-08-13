@@ -143,13 +143,32 @@ def register(mcp: MCPServer) -> None:
         reminder_time: str | None = None,
         lead_id: int | None = None,
         address: str | None = None,
+        clear_fields: list[str] | None = None,
     ) -> dict[str, Any]:
         """Partially update a calendar Task or Appointment (PUT /v2.0/calendar/{calendarId}).
 
         calendar_id is the composite string from create ("<id>-task"/"<id>-appointment").
-        Only supplied fields are changed. start_at/end_at, if supplied, must be later than now.
+        Only supplied fields are changed -- omitting a parameter (leaving it None) leaves
+        that field alone. start_at/end_at, if supplied, must be later than now.
+
+        Since omitting a field means "unchanged", there's no way to *clear* an optional
+        field just by passing None -- use clear_fields for that: a list of this tool's own
+        parameter names (e.g. ["address"]) to explicitly null out in the request, even
+        though that parameter wasn't otherwise supplied.
         """
         client = ctx.request_context.lifespan_context.client
+        field_map = {
+            "content": "content",
+            "start_at": "startAt",
+            "end_at": "endAt",
+            "start_at_ms": "startAtMs",
+            "end_at_ms": "endAtMs",
+            "time_zone_code": "timeZoneCode",
+            "reminder_type": "reminderType",
+            "reminder_time": "reminderTime",
+            "lead_id": "leadId",
+            "address": "address",
+        }
         body = compact(
             content=content,
             startAt=start_at,
@@ -162,6 +181,8 @@ def register(mcp: MCPServer) -> None:
             leadId=lead_id,
             address=address,
         )
+        for field in clear_fields or []:
+            body[field_map.get(field, field)] = None
         return await request(client, "PUT", f"/v2.0/calendar/{calendar_id}", json=body)
 
     @mcp.tool(
